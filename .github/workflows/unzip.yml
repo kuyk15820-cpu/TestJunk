@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   build:
+    # เลือกใช้เวอร์ชันตามที่คุณทดสอบแล้วว่ารันได้ทันที
     runs-on: macos-26
 
     steps:
@@ -31,57 +32,16 @@ jobs:
       - name: download ios sdk
         run: |
           mkdir -p /Users/runner/theos/sdks
+          # ดึง SDK ตรงจาก Xcode บนเครื่องเพื่อแก้ปัญหาไฟล์ตระกูล tar.xz พัง
           ln -s /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk /Users/runner/theos/sdks/iPhoneOS16.0.sdk
 
       - name: set timezone to thailand
         run: |
+          # ปรับการเชื่อมโยงระบบเวลาเครื่องไปที่โซนเอเชีย/กรุงเทพฯ
           sudo ln -sf /usr/share/zoneinfo/Asia/Bangkok /etc/localtime
+          # ส่งค่า TZ เข้าสู่ Environment ของ GitHub Actions ทั่วทั้งระบบ runner
           echo "TZ=Asia/Bangkok" >> $GITHUB_ENV
           date
-
-      - name: generate single monolithic junk file inside JunkFiles (10MB+)
-        run: |
-          cat << 'EOF' > gen_junk.py
-          import os
-          import random
-          import string
-
-          def random_string(length=10):
-              first_char = random.choice(string.ascii_letters)
-              remaining = ''.join(random.choices(string.ascii_letters + string.digits, k=length-1))
-              return first_char + remaining
-
-          # บังคับสร้างโฟลเดอร์รองรับการค้นหาของ Makefile
-          os.makedirs("JunkFiles", exist_ok=True)
-          
-          class_name = f"_gn_{random_string(8)}"
-          total_functions = 150000
-          func_names = [random_string(12) for _ in range(total_functions)]
-
-          print(f"Generating single monolithic file inside JunkFiles/ with {total_functions} functions...")
-
-          # สร้างไฟล์ไปไว้ที่โฟลเดอร์ JunkFiles
-          with open("JunkFiles/JunkCodeMonolith.mm", "w") as f:
-              f.write("#import <Foundation/Foundation.h>\n")
-              f.write("#import <UIKit/UIKit.h>\n\n")
-              
-              f.write(f"@interface {class_name} : NSObject\n")
-              for func_name in func_names:
-                  f.write(f"- (void){func_name} __attribute__((used));\n")
-              f.write("@end\n\n")
-              
-              f.write(f"@implementation {class_name}\n")
-              for func_name in func_names:
-                  f.write(f"- (void){func_name} __attribute__((used)) {{\n")
-                  f.write(f"    int x = arc4random() % 100;\n")
-                  f.write(f"    for(int i=0; i<5; i++) {{ x += i; }}\n")
-                  f.write(f"    if (x == 999) {{ NSLog(@\"%%d\", x); }}\n")
-                  f.write(f"}}\n")
-              f.write("@end\n")
-
-          print("Successfully generated JunkFiles/JunkCodeMonolith.mm (10MB+)!")
-          EOF
-          python3 gen_junk.py
 
       - name: build package
         run: |
@@ -93,6 +53,7 @@ jobs:
       - name: prepare build directory
         run: |
           mkdir -p build
+          # ดึงไฟล์ .ipa จากโฟลเดอร์ packages ของ Theos ไปรออัปโหลดเข้า Release
           cp packages/*.ipa build/FXTool.ipa
 
       - name: upload artifact (PR only)
