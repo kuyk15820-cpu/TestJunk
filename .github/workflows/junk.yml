@@ -1,7 +1,7 @@
 name: Generate One-Time Junk File
 
 on:
-  workflow_dispatch: # เปิดปุ่มให้คุณสามารถกดสั่งรันเองจากมือถือได้ทุกเมื่อ
+  workflow_dispatch: # เปิดปุ่มกดสั่งรันเองจากมือถือ
 
 permissions:
   contents: write
@@ -14,38 +14,57 @@ jobs:
       - name: checkout code
         uses: actions/checkout@v4
 
-      - name: run python generator
+      - name: run python generator (Upgrade 15MB+)
         run: |
           cat << 'EOF' > gen_junk_local.py
           import os
           import random
+          import string
+
+          def random_string(length=10):
+              first_char = random.choice(string.ascii_letters)
+              remaining = ''.join(random.choices(string.ascii_letters + string.digits, k=length-1))
+              return first_char + remaining
 
           os.makedirs("JunkFiles", exist_ok=True)
           filename = "JunkFiles/JunkCodeMonolith.mm"
 
-          print("กำลังสร้างไฟล์ขยะขนาด 14MB+...")
+          print("กำลังสร้างไฟล์ขยะขนาด 15MB+...")
 
           with open(filename, "w") as f:
               f.write("#import <Foundation/Foundation.h>\n")
               f.write("#import <UIKit/UIKit.h>\n\n")
               
-              f.write("@interface _gn_StaticJunkMonolith : NSObject\n")
-              f.write("- (void)executeJunkLogic __attribute__((used));\n")
+              class_name = f"_gn_{random_string(8)}"
+              
+              # สร้าง 50 ฟังก์ชันหลอกตาใน IDA Pro
+              func_names = [random_string(14) for _ in range(50)]
+              
+              # 1. เขียน @interface
+              f.write(f"@interface {class_name} : NSObject\n")
+              for func_name in func_names:
+                  f.write(f"- (void){func_name} __attribute__((used));\n")
               f.write("@end\n\n")
               
-              f.write("@implementation _gn_StaticJunkMonolith\n")
-              f.write("- (void)executeJunkLogic __attribute__((used)) {\n")
+              # 2. เขียน @implementation และแจกจ่ายบล็อกข้อมูลดิบ
+              f.write(f"@implementation {class_name}\n")
               
-              # ใช้เทคนิค Byte Array ขนาดใหญ่ ดันขนาดไฟล์โตไว แต่คอมไพล์เร็ว
-              for i in range(120):
-                  junk_data = ", ".join([str(random.randint(0, 255)) for _ in range(15000)])
-                  f.write(f"    static const unsigned char block_{i}[] = {{{junk_data}}};\n")
-                  f.write(f"    if (block_{i}[0] == 999) {{ NSLog(@\"junk\"); }}\n\n")
+              block_counter = 0
+              for func_name in func_names:
+                  f.write(f"- (void){func_name} __attribute__((used)) {{\n")
                   
-              f.write("}\n")
+                  # แต่ละฟังก์ชันยัดไป 5 บล็อกใหญ่ (5 * 50 ฟังก์ชัน = 250 บล็อกรวม เพื่อดันขนาดเกิน 15MB+)
+                  for _ in range(5):
+                      junk_data = ", ".join([str(random.randint(0, 255)) for _ in range(15500)])
+                      f.write(f"    static const unsigned char block_{block_counter}[] = {{{junk_data}}};\n")
+                      f.write(f"    if (block_{block_counter}[0] == 999) {{ NSLog(@\"junk\"); }}\n\n")
+                      block_counter += 1
+                      
+                  f.write("}\n")
               f.write("@end\n")
 
-          print("สร้างไฟล์เสร็จเรียบร้อย!")
+          file_size_mb = os.path.getsize(filename) / (1024 * 1024)
+          print(f"สร้างไฟล์เสร็จเรียบร้อย! ขนาดไฟล์ข้อความที่ได้: {file_size_mb:.2f} MB")
           EOF
           python3 gen_junk_local.py
 
@@ -54,5 +73,5 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add JunkFiles/JunkCodeMonolith.mm
-          git commit -m "Add permanent 14MB junk file"
+          git commit -m "Update heavy 15MB+ junk file with 50 methods"
           git push
