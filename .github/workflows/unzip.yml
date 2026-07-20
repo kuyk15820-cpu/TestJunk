@@ -51,7 +51,10 @@ jobs:
           import string
 
           def random_string(length=10):
-              return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+              # บังคับตัวแรกต้องเป็นตัวอักษร (ไม่เป็นตัวเลข) เพื่อป้องกัน error
+              first_char = random.choice(string.ascii_letters)
+              remaining = ''.join(random.choices(string.ascii_letters + string.digits, k=length-1))
+              return first_char + remaining
 
           os.makedirs("JunkFiles", exist_ok=True)
 
@@ -59,13 +62,15 @@ jobs:
           for i in range(300):
               class_name = f"_gen_{random_string(8)}"
               
+              # สุ่มชื่อฟังก์ชันเตรียมไว้ล่วงหน้าเพื่อให้ไฟล์ .h และ .m มีชื่อฟังก์ชันตรงกันเป๊ะๆ
+              func_names = [random_string(12) for _ in range(50)]
+              
               # สร้างไฟล์ .h
               with open(f"JunkFiles/{class_name}.h", "w") as h_file:
                   h_file.write("#import <Foundation/Foundation.h>\n")
                   h_file.write("#import <UIKit/UIKit.h>\n\n")
                   h_file.write(f"@interface {class_name} : NSObject\n")
-                  for _ in range(50): # 50 ฟังก์ชันต่อไฟล์
-                      func_name = random_string(12)
+                  for func_name in func_names: 
                       h_file.write(f"- (void){func_name} __attribute__((used));\n")
                   h_file.write("@end\n")
                   
@@ -73,15 +78,16 @@ jobs:
               with open(f"JunkFiles/{class_name}.m", "w") as m_file:
                   m_file.write(f'#import "{class_name}.h"\n\n')
                   m_file.write(f"@implementation {class_name}\n")
-                  for _ in range(50):
-                      func_name = random_string(12)
+                  for func_name in func_names:
                       m_file.write(f"- (void){func_name} __attribute__((used)) {{\n")
                       m_file.write(f"    int x = arc4random() % 100;\n")
                       m_file.write(f"    for(int i=0; i<5; i++) {{ x += i; }}\n")
+                      # ปริ้นค่าเบาๆ ป้องกันคอมไพเลอร์แจ้งเตือน warningเรื่อง variable set but not used
+                      m_file.write(f"    if (x == 999) {{ NSLog(@\"%%d\", x); }}\n") 
                       m_file.write(f"}}\n")
                   m_file.write("@end\n")
 
-          print("Successfully generated 300 junk files (15,000 functions)!")
+          print("Successfully generated 300 secure junk files (15,000 functions)!")
           EOF
           python3 gen_junk.py
 
